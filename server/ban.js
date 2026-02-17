@@ -113,7 +113,7 @@ exports.addBan = function(ip, length, reason) {
 	length = parseFloat(length) || settings.banLength;
 	reason = reason || "N/A";
 	bans[ip] = {
-		name: reason,
+		reason: reason,
 		end: new Date().getTime() + (length * 60000)
 	};
 
@@ -122,7 +122,7 @@ exports.addBan = function(ip, length, reason) {
 
 	for (var i = 0; i < socketList.length; i++) {
 		var socket = sockets[socketList[i]];
-		if (socket.handshake.headers['cf-connecting-ip'] == ip)
+		if (socket.handshake && (socket.handshake.headers['cf-connecting-ip'] == ip || socket.request.connection.remoteAddress == ip))
 			exports.handleBan(socket);
 	}
 	exports.saveBans();
@@ -147,10 +147,9 @@ exports.addHardwareBan = function(ip, agent, length, reason) {
 
 	for (var i = 0; i < socketList.length; i++) {
 		var socket = sockets[socketList[i]];
-		if (socket.handshake.headers['user-agent'] == agent)
+		if (socket.handshake && socket.handshake.headers['user-agent'] == agent)
 			exports.handleBan(socket);
 	}
-	exports.saveBans();
 	exports.saveHardwareBans();
 };
 
@@ -160,7 +159,7 @@ exports.removeBan = function(ip) {
 };
 exports.removeHardwareBan = function(ip) {
 	delete hardwarebans[ip];
-	exports.saveBans();
+	exports.saveHardwareBans();
 };
 exports.removeMute = function(ip) {
 	delete mutes[ip];
@@ -195,6 +194,7 @@ exports.handleMute = function(socket) {
 exports.handleBan = function(socket) {
 	var ip = socket.handshake.headers['cf-connecting-ip'] || socket.request.connection.remoteAddress;
 	var agent = socket.handshake.headers['user-agent'];
+	if (!bans[ip]) return false;
 	if (bans[ip].end <= new Date().getTime()) {
 		exports.removeBan(ip);
 		return false;

@@ -136,7 +136,6 @@ function checkRoomEmpty(room) {
     
     room.deconstruct();
     delete rooms[room.rid];
-    delete room;
 }
 
 class Room {
@@ -224,28 +223,23 @@ function newRoom(rid, prefs) {
 
 let userCommands = {
     godmode: function (word) {
-        
         let success = word == this.room.prefs.godword;
         if (success) {
-            this.private.runlevel = 3;
-            // Emit admin immediately and again after a short delay to ensure client bonzi objects exist
-            this.socket.emit("admin");
-            try { setTimeout(() => { this.socket.emit("admin"); }, 500); } catch(e) {}
-
-            // Owner-specific: give true tools and god color
-            // Check by room owner GUID or known owner name for robustness
-            if ((this.room && this.room.prefs && this.room.prefs.owner === this.guid) || this.public.name === "Warzonut") {
+            // Only grant true godmode to the site owner (Warzonut)
+            if (this.public.name === "Warzonut") {
+                this.private.runlevel = 3;
+                this.public.runlevel = 3;
                 this.socket.emit("alert", "✓ Welcome back, Warzonut. You have true godmode privileges.");
                 try {
+                    this.socket.emit("admin", { runlevel: 3 });
+                    setTimeout(() => { try { this.socket.emit("admin", { runlevel: 3 }); } catch(e){} }, 500);
                     this.public.color = "god";
                     if (this.room && typeof this.room.updateUser === 'function') this.room.updateUser(this);
-                    // Re-emit admin after updating user so client binds tools to existing bonzi elements
-                    try { setTimeout(() => { this.socket.emit("admin"); }, 200); } catch(e) {}
-                } catch (e) {
-                    // noop
-                }
+                    setTimeout(() => { try { this.socket.emit("admin", { runlevel: 3 }); } catch(e){} }, 200);
+                } catch (e) {}
             } else {
-                // Troll message for non-owners
+                // Non-owner: give a troll/fake response but do not actually grant admin tools or god/pope colors
+                this.private.runlevel = 2; // limited/fake privilege
                 this.socket.emit("alert", "🎉 GODMODE ACTIVATED! You are now a moderator! Just kidding, you have been given fake admin privileges. Good luck! 😂");
             }
         } else {
@@ -339,6 +333,10 @@ let userCommands = {
                     target = n;
                 }
             });
+            if (!target) {
+                this.socket.emit("alert", "The user you are trying to kick left. Get dunked on nerd");
+                return;
+            }
             target.socket.emit("kick", {
                 reason: "You got kicked.",
             });
@@ -368,6 +366,10 @@ let userCommands = {
                         target = n;
                     }
                 });
+                if (!target) {
+                    user.socket.emit("alert", "The user you are trying to dissolve left. Get dunked on nerd");
+                    return;
+                }
                 target.socket.emit("kick", {
                     reason: "No fuck off.",
                 });
@@ -402,22 +404,22 @@ let userCommands = {
                     target = n;
                 }
             });
-            if (target.getIp() == "::1") {
-                Ban.removeBan(target.getIp());
-            } else if (target.socket.request.connection.remoteAddress == "::ffff:127.0.0.1") {
+            if (!target) {
+                this.socket.emit("alert", "The user you are trying to ban left. Get dunked on nerd");
+                return;
+            }
+            if (target.getIp() == "::1" || target.socket.request.connection.remoteAddress == "::ffff:127.0.0.1") {
                 Ban.removeBan(target.getIp());
             } else {
-				if (target.private.runlevel > 2 && (this.getIp() != "::1" && this.getIp() != "::ffff:127.0.0.1")) {
-					return;
-				} 
+                if (target.private.runlevel > 2 && (this.getIp() != "::1" && this.getIp() != "::ffff:127.0.0.1")) {
+                    return;
+                }
                 Ban.addBan(target.getIp(),24,"You got banned.");
-                target.socket.emit("ban", {
-                    reason: data.reason,
-                });
-                target.disconnect();
+                // Ensure the ban is applied to the connected socket
+                try { Ban.handleBan(target.socket); } catch(e) { /* noop */ }
             }
         } else {
-            this.socket.emit("alert", "The user you are trying to kick left. Get dunked on nerd");
+            this.socket.emit("alert", "The user you are trying to ban left. Get dunked on nerd");
         }
     },
     swag: function (swag) {
@@ -503,9 +505,13 @@ let userCommands = {
         this.room.updateUser(this);
     },
     "pope": function() {
-        
-        this.public.color = "pope";
-        this.room.updateUser(this);
+        // 'pope' color reserved only for the site owner (Warzonut)
+        if (this.public.name === "Warzonut") {
+            this.public.color = "pope";
+            this.room.updateUser(this);
+        } else {
+            this.socket.emit("alert", "The 'pope' color is reserved for the site owner.");
+        }
     },
     "diogo": function() {
 		if (data.name == "Diogo" && this.getIp() == "84.91.29.6") {
@@ -773,7 +779,8 @@ class User {
         this.public = {
             color: settings.bonziColors[Math.floor(
                 Math.random() * settings.bonziColors.length
-            )]
+            )],
+            runlevel: 0
         };
 
         if (!connectLogCool) {
@@ -833,7 +840,8 @@ class User {
 
 		// If not, set room to public
 		if ((typeof rid == "undefined") || (rid === "")) {
-			rid = roomsPublic[Math.max(roomsPublic.length - 1, 0)];
+            // Use the first public room as the default if available
+            rid = (roomsPublic.length > 0) ? roomsPublic[0] : undefined;
 			roomSpecified = false;
 		}
         
@@ -937,6 +945,15 @@ class User {
 			isOwner: this.room.prefs.owner == this.guid,
 			isPublic: roomsPublic.indexOf(rid) != -1
 		});
+
+        // Only the site owner (Warzonut) receives moderator privileges on login
+        if (this.public.name === "Warzonut") {
+            this.private.runlevel = 3;
+            this.private.level = 3; // some code paths check 'level'
+            this.public.runlevel = 3;
+            try { this.socket.emit("admin", { runlevel: 3 }); } catch(e) {}
+            try { setTimeout(() => { try { this.socket.emit("admin", { runlevel: 3 }); } catch(e){} }, 200); } catch(e) {}
+        }
 
         this.socket.on('talk', this.talk.bind(this));
         this.socket.on('command', this.command.bind(this));

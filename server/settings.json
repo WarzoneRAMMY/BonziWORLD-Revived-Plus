@@ -138,7 +138,7 @@
 		"humanReadableUnhandledException": true
 		}
 	},
-    "bonziColors": [
+        "bonziColors": [
       "purple",
       "blue",
       "green", 
@@ -149,9 +149,7 @@
       "yellow",
       "white",
     "ghost",
-    "grey",
-    "god",
-    "pope",
+        "grey",
       "dark_purple",
       "dark_red",
       "lime",
