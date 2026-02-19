@@ -30,13 +30,22 @@ exports.saveBans = function() {
 	);
 };
 
-// Ban length is in minutes
+// Ban length is in minutes, or null for permanent
 exports.addBan = function(ip, length, reason) {
-	length = parseFloat(length) || settings.banLength;
 	reason = reason || "N/A";
+	
+	// Support permanent bans
+	let endTime;
+	if (length === null || length === "perm" || length === "null") {
+		endTime = null;  // null represents permanent ban
+	} else {
+		length = parseFloat(length) || settings.banLength;
+		endTime = new Date().getTime() + (length * 60000);
+	}
+	
 	bans[ip] = {
 		reason: reason,
-		end: new Date().getTime() + (length * 60000)
+		end: endTime
 	};
 
 	var sockets = io.sockets.sockets;
@@ -57,7 +66,9 @@ exports.removeBan = function(ip) {
 
 exports.handleBan = function(socket) {
 	var ip = socket.request.connection.remoteAddress;
-	if (bans[ip].end <= new Date().getTime()) {
+	
+	// Check if ban has expired (permanent bans have null end date)
+	if (bans[ip].end !== null && bans[ip].end <= new Date().getTime()) {
 		exports.removeBan(ip);
 		return false;
 	}

@@ -9,7 +9,6 @@ function ban() {
 	} else {
 		x4.style.display = "none";
 	}
-	alert("Banned!") 
 }
 
 function report() {
@@ -22,7 +21,6 @@ function report() {
 	} else {
 		x4.style.display = "none";
 	}
-	alert("Banned!") 
 }
 
 function banmenu() {

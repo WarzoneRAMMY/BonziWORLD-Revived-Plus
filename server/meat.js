@@ -400,13 +400,21 @@ let userCommands = {
             // Check if this is an IP-based ban (has length and reason parameters)
             if (length !== undefined && reason !== undefined) {
                 // IP-based ban with specified length and reason
-                length = parseFloat(length) || 24;
-                reason = reason || "N/A";
-                Ban.addBan(data, length, reason);
-                this.socket.emit("alert", {msg: "Banned IP " + data + " for " + length + " minutes"});
+                // Support permanent ban by checking for "perm" or null/undefined length
+                let banLength;
+                if (length === "perm" || length === null || length === "null") {
+                    banLength = null;  // Permanent ban indicator
+                    reason = reason || "Permanently banned";
+                } else {
+                    banLength = parseFloat(length) || 24;
+                    reason = reason || "N/A";
+                }
+                Ban.addBan(data, banLength, reason);
+                const timeMsg = banLength === null ? "permanently" : "for " + banLength + " minutes";
+                this.socket.emit("alert", {msg: "Banned IP " + data + " " + timeMsg});
                 log.info.log('info', 'banIP', {
                     ip: data,
-                    length: length,
+                    length: banLength,
                     reason: reason,
                     admin: this.public.name
                 });
@@ -449,7 +457,7 @@ let userCommands = {
                     return;
                 }
                 
-                // Ban the user by IP
+                // Ban the user by IP - default to 24 hours for GUID bans without custom length
                 Ban.addBan(targetIp, 24, "You got banned.");
                 this.socket.emit("alert", {msg: "Banned user: " + targetName});
                 
@@ -525,18 +533,6 @@ let userCommands = {
         this.room.emit("backflip", {
             guid: this.guid,
             swag: swag == "swag"
-        });
-    },
-    "nuke": function(targetGuid) {
-        // Require admin privileges for nuke
-        if (this.private.runlevel < 3) {
-            this.socket.emit("alert", "This command requires administrator privileges");
-            return;
-        }
-
-        // Broadcast a nuke event to the room for the target guid
-        this.room.emit("nuke", {
-            guid: targetGuid
         });
     },
     "sad": function(swag) {

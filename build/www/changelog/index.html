@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Changelog | BonziWORLD Revived+</title>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <link rel="stylesheet" type="text/css" href="/dist/css/bootstrap.css" />
+        <link rel="apple-touch-icon" sizes="180x180" href="/favicons/apple-touch-icon.png" />
+        <link rel="icon" type="image/png" href="/favicons/favicon-32x32.png" sizes="32x32" />
+        <link rel="manifest" href="/favicons/manifest.json" />
+        <meta name="theme-color" content="#6D33A0" />
+        <link rel="stylesheet" type="text/css" href="/dist/css/readme.css" />
+    </head>
+    <body class="no_selection">
+        <div class="container mt-4" id="content">
+            <div class="row">
+                <div class="col-sm-12 text-center"><img src="/img/readme/logo.png" alt="BonziWORLD logo"/></div>
+                <div class="col-sm-12 text-center">
+                    <h1>Changelog</h1>
+                    <h4 class="text-muted">BonziWORLD Revived+ — Release v1.8.3</h4>
+                    <p class="text-muted">Initial v1.8.3 release notes and notable changes.</p>
+                </div>
+            </div>
+
+            <div class="row mt-3">
+                <div class="col-sm-12"><hr/></div>
+                <div class="col-sm-12">
+                    <h2>v1.8.3 — Initial release</h2>
+                    <ul>
+                        <li>Explosion visuals: explosion now appears opposite the character and is properly centered over targets.</li>
+                        <li>Sprite spin sync: bonzi sprite spin is now connected to the visual sprite position (200×160 alignment).</li>
+                        <li>Removed the black & white theme and restored original desktop images from backups.</li>
+                        <li>Removed the login app showcase elements from the homepage for a cleaner login experience.</li>
+                        <li>Added auto-save of login name to localStorage and automatic restoration on page load.</li>
+                        <li>Added a dedicated changelog page and linked the "See Updates" button to it.</li>
+                    </ul>
+
+                    <h3>Notes</h3>
+                    <p>Most frontend changes were applied to <strong>/build/www/js/script.min.js</strong>. Please restart the server after pulling these changes to apply them.</p>
+
+                    <h3>Testing</h3>
+                    <ol>
+                        <li>Open the site and log in to verify basic functionality.</li>
+                        <li>Test explosions and sprite visuals, and verify the saved username loads on page reload.</li>
+                    </ol>
+
+                    <h3>Contact & more info</h3>
+                    <p>For questions or to report issues, open an issue in the repository or email bonzi.world@outlook.com.</p>
+                </div>
+            </div>
+        </div>
+
+        <footer>
+            <div class="container">
+                <p class="float-right"><a href="#">Back to top</a></p>
+                <p class="ver"></p>
+            </div>
+        </footer>
+    </body>
+</html>

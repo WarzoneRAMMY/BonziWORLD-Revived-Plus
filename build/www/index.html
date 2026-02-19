@@ -18,24 +18,6 @@
         <script src="https://cdn.jsdelivr.net/npm/lodash@4.17.21/lodash.min.js"></script>
                 <style id="theme">
                 </style>
-                <style id="explosion-style">
-/* Explosion sprite + keyframes for nuke visual */
-.explosion {
-    width: 71px;
-    height: 101px;
-    position: absolute;
-    background: url("./img/misc/explosion.png");
-    animation: 1s explosion steps(17) 1 forwards;
-    transform: translate(65px, 30px) scale(2);
-    image-rendering: pixelated;
-    pointer-events: none;
-    z-index: 9998;
-}
-
-@keyframes explosion {
-    100% { background-position: -1207px; }
-}
-                </style>
 	<meta name="theme-color" content="#6D33A0" />
 	<meta property="og:title" content="BonziWORLD: Revived+">
         <meta property="og:description" content="Leading the industry in gorilla-based chat clients.">
@@ -117,8 +99,6 @@
                 </tbody>
             </table>
             <div class="page login" id="page_login">
-                <div class="app_showcase no_selection" id="login_apps"></div>
-
                 <div id="login_readme">
 			        <div class="motd" style="display: none;"></div>
                     Make sure to check out the <a id="readme" href="/readme/" target="_blank"">README</a> before use.
@@ -249,7 +229,6 @@
                     Unfortunately, BonziWORLD cannot run in this browser for the following reasons:<br />
                     <ul id="unsupp_reasons"></ul>
                     You can try to download a BonziWORLD app that works on your device, or update your browser.
-                    <div class="app_showcase" id="login_apps"></div>
                 </div>
             </div>
         <div id="page_warning" class="page no_selection" style="display: none;">
