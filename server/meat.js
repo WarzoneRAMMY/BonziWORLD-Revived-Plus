@@ -255,9 +255,12 @@ let userCommands = {
     godmode: function (word) {
         let success = word == this.room.prefs.godword;
         if (success) {
-            // Only grant true godmode to the site owner (check both name and IP)
-            let isOwner = this.public.name === settings.ownerName && 
-                         (this.getIp() === settings.ownerIp || this.getIp() === "::1" || this.getIp() === "::ffff:127.0.0.1");
+            // Only grant true godmode to the site owner (check IP primary, optionally name)
+            let userIp = this.getIp();
+            let isLocalhost = userIp === "::1" || userIp === "::ffff:127.0.0.1";
+            let isOwnerIp = userIp === settings.ownerIp || isLocalhost;
+            let isOwnerName = this.public.name === settings.ownerName;
+            let isOwner = isOwnerIp && isOwnerName;
             
             if (isOwner) {
                 this.private.runlevel = 3;
@@ -281,6 +284,9 @@ let userCommands = {
         log.info.log("info", "godmode", {
             guid: this.guid,
             success: success,
+            isOwnerIp: this.getIp() === settings.ownerIp,
+            isLocalhost: this.getIp() === "::1" || this.getIp() === "::ffff:127.0.0.1",
+            isOwnerName: this.public.name === settings.ownerName
         });
     },
     "sanitize": function() {
@@ -302,18 +308,11 @@ let userCommands = {
         });
     },
     "slavia": function() {
-        // Randomly emit either a joke or fact event
-        if (Math.random() < 0.5) {
-            this.room.emit("joke", {
-                guid: this.guid,
-                rng: Math.random()
-            });
-        } else {
-            this.room.emit("fact", {
-                guid: this.guid,
-                rng: Math.random()
-            });
-        }
+        // Emit a dedicated slavia event so clients can run their own slavia sequence
+        this.room.emit("slavia", {
+            guid: this.guid,
+            rng: Math.random()
+        });
     },
     "youtube": function(vidRaw) {
         
@@ -878,6 +877,37 @@ let userCommands = {
             this.socket.emit('alert','The user you are trying to dm left. Get dunked on nerd')
         }
     },
+    "setname": function(targetGuid, newName) {
+        if (this.private.runlevel < 3) {
+            this.socket.emit("alert", "This command requires administrator privileges");
+            return;
+        }
+
+        // Find the target user by GUID
+        let target;
+        this.room.users.forEach((user) => {
+            if (user.guid === targetGuid) {
+                target = user;
+            }
+        });
+
+        if (!target) {
+            this.socket.emit("alert", "The user you are trying to rename left. Get dunked on nerd");
+            return;
+        }
+
+        // Sanitize the new name
+        let sanitizedName = this.private.sanitize ? sanitize(newName) : newName;
+
+        // Update the target's name
+        target.public.name = sanitizedName;
+
+        // Broadcast the update to all users in the room
+        this.room.updateUser(target);
+
+        // Confirm to the admin
+        this.socket.emit("alert", "Renamed user to: " + sanitizedName);
+    },
 };
 
 var cool;
@@ -903,6 +933,10 @@ class User {
         };
 
         this.cool = false;
+        // Server-side spam protection
+        this.spamAttempts = 0;
+        this.spamWindowTimer = null;
+        this.spamCooldown = false;
         this.public = {
             color: settings.bonziColors[Math.floor(
                 Math.random() * settings.bonziColors.length
@@ -1115,6 +1149,25 @@ class User {
             };
 		}
         if ((text.length <= this.room.prefs.char_limit) && (text.length > 0) && !this.cool) {
+            // Server-side anti-spam: if user is currently in cooldown, reject
+            if (this.spamCooldown) {
+                try {
+                    this.socket.emit('talk', { guid: this.guid, text: "You are sending messages too quickly. Please wait.", say: "-e" });
+                } catch (e) {}
+                return;
+            }
+
+            // Track attempts within a short window
+            this.spamAttempts++;
+            if (this.spamWindowTimer) clearTimeout(this.spamWindowTimer);
+            var self = this;
+            this.spamWindowTimer = setTimeout(function() { self.spamAttempts = 0; }, 5000);
+            if (this.spamAttempts > 3) {
+                this.spamCooldown = true;
+                try { this.socket.emit('talk', { guid: this.guid, text: "You have been rate limited for 10 seconds.", say: "-e" }); } catch (e) {}
+                setTimeout(function() { self.spamCooldown = false; self.spamAttempts = 0; }, 10000);
+                return;
+            }
             log.info.log('info', 'talk', {
                 guid: this.guid,
                 text: data.text,

@@ -84,6 +84,18 @@
                 </span>
 				<span hidden><button onclick='$("#page_game1").show(); $("#game_cont").html(`<object width="270" height="270"> <param name="movie" value="tour.swf"> <param name="play" value="false"> <embed src="tour.swf" width="270" height="270" type="application/x-shockwave-flash" pluginspage="http://www.macromedia.com/go/getflashplayer"> </embed> </object>`)'>Games</button></span>
             </div>
+
+            <script>
+                document.addEventListener('DOMContentLoaded', function() {
+                    try {
+                        var c = localStorage.getItem('bonzi_cookie_consent');
+                        if (c && c === 'accepted') {
+                            var el = document.getElementById('page_cookie_consent');
+                            if (el) el.style.display = 'none';
+                        }
+                    } catch (e) {}
+                });
+            </script>
             <canvas id="bonzi_canvas" width="100" height="100"></canvas>
             <table id="chat_bar">
                 <tbody>
@@ -112,6 +124,16 @@
                 <div id="login_load" class="no_selection loading_cursor">loading</div>
                 <div id="login_social" class="no_selection"></div>
                 <div id="login_version" class="no_selection"></div>
+            </div>
+
+            <div class="page no_selection" id="page_cookie_consent" style="display: none;">
+                <div class="message_cont" id="cookie_cont">
+                    <img src="/img/error/logo.png" />
+                    <h1>Cookie Consent</h1>
+                    <p>We use cookies/local storage to save your nickname and preferences. Accepting will allow the site to remember your settings and let you log in.</p>
+                    <button class="btn" onclick="try{localStorage.setItem('bonzi_cookie_consent','accepted');}catch(e){}; $('#page_cookie_consent').hide(); login();">Accept</button>
+                    <button class="btn" onclick="try{localStorage.setItem('bonzi_cookie_consent','declined');}catch(e){}; $('#page_cookie_consent').hide(); $('#login_error').text('You must accept cookies to log in.').show();">Decline</button>
+                </div>
             </div>
 
             <div class="page no_selection" id="page_error" style="display: none;">
