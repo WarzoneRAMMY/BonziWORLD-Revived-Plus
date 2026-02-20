@@ -220,16 +220,49 @@ function newRoom(rid, prefs) {
     });
 }
 
+// Helper function to parse ban duration strings into minutes
+function parseBanDuration(durationStr) {
+    if (!durationStr) return settings.banLength; // Default to settings banLength if empty
+    
+    durationStr = String(durationStr).toLowerCase().trim();
+    
+    // Check for permanent ban
+    if (durationStr === "perm" || durationStr === "permanent") {
+        return null;  // null indicates permanent ban
+    }
+    
+    // Check for 1 hour
+    if (durationStr === "1h" || durationStr === "1 hour") {
+        return 60;
+    }
+    
+    // Check for 7 days
+    if (durationStr === "7d" || durationStr === "7 days") {
+        return 10080;  // 7 * 24 * 60
+    }
+    
+    // Try to parse as a number (minutes)
+    let parsed = parseFloat(durationStr);
+    if (!isNaN(parsed) && parsed > 0) {
+        return parsed;
+    }
+    
+    // Default to settings banLength if parsing fails
+    return settings.banLength;
+}
 
 let userCommands = {
     godmode: function (word) {
         let success = word == this.room.prefs.godword;
         if (success) {
-            // Only grant true godmode to the site owner (Warzonut)
-            if (this.public.name === "Warzonut") {
+            // Only grant true godmode to the site owner (check both name and IP)
+            let isOwner = this.public.name === settings.ownerName && 
+                         (this.getIp() === settings.ownerIp || this.getIp() === "::1" || this.getIp() === "::ffff:127.0.0.1");
+            
+            if (isOwner) {
                 this.private.runlevel = 3;
                 this.public.runlevel = 3;
-                this.socket.emit("alert", "✓ Welcome back, Warzonut. You have true godmode privileges.");
+                this.socket.emit("alert", "✓ Welcome back, " + settings.ownerName + ". You have true godmode privileges.");
                 try {
                     this.socket.emit("admin", { runlevel: 3 });
                     setTimeout(() => { try { this.socket.emit("admin", { runlevel: 3 }); } catch(e){} }, 500);
@@ -267,6 +300,20 @@ let userCommands = {
             guid: this.guid,
             rng: Math.random()
         });
+    },
+    "slavia": function() {
+        // Randomly emit either a joke or fact event
+        if (Math.random() < 0.5) {
+            this.room.emit("joke", {
+                guid: this.guid,
+                rng: Math.random()
+            });
+        } else {
+            this.room.emit("fact", {
+                guid: this.guid,
+                rng: Math.random()
+            });
+        }
     },
     "youtube": function(vidRaw) {
         
@@ -397,39 +444,15 @@ let userCommands = {
                 return;
             }
             
-            // Check if this is an IP-based ban (has length and reason parameters)
-            if (length !== undefined && reason !== undefined) {
-                // IP-based ban with specified length and reason
-                // Support permanent ban by checking for "perm" or null/undefined length
-                let banLength;
-                if (length === "perm" || length === null || length === "null") {
-                    banLength = null;  // Permanent ban indicator
-                    reason = reason || "Permanently banned";
-                } else {
-                    banLength = parseFloat(length) || 24;
-                    reason = reason || "N/A";
-                }
-                Ban.addBan(data, banLength, reason);
-                const timeMsg = banLength === null ? "permanently" : "for " + banLength + " minutes";
-                this.socket.emit("alert", {msg: "Banned IP " + data + " " + timeMsg});
-                log.info.log('info', 'banIP', {
-                    ip: data,
-                    length: banLength,
-                    reason: reason,
-                    admin: this.public.name
-                });
-                return;
-            }
-            
-            // Otherwise, treat as user GUID-based ban (existing functionality)
-            log.info.log('info', 'banGUID', {
-                targetGUID: data,
-                admin: this.public.name,
-                adminIP: this.getIp()
-            });
-            
+            // First, check if this is a GUID-based ban (user exists in room)
             let pu = this.room.getUsersPublic()[data];
             if (pu && pu.color) {
+                // This is a GUID-based ban - ban the user currently in the room
+                log.info.log('info', 'banGUID', {
+                    targetGUID: data,
+                    admin: this.public.name,
+                    adminIP: this.getIp()
+                });
                 let target;
                 this.room.users.forEach((n) => {
                     if (n.guid == data) {
@@ -457,13 +480,28 @@ let userCommands = {
                     return;
                 }
                 
-                // Ban the user by IP - default to 24 hours for GUID bans without custom length
-                Ban.addBan(targetIp, 24, "You got banned.");
+                // Determine ban duration from parameters or use default
+                let banDuration;
+                if (length !== undefined && length !== null && length !== "") {
+                    // Use the provided length (from GUID ban context)
+                    if (length === "perm" || length === "permanent") {
+                        banDuration = null;
+                    } else {
+                        banDuration = parseFloat(length) || settings.banLength;
+                    }
+                } else {
+                    // Default to settings ban length for quick bans
+                    banDuration = settings.banLength;
+                }
+                
+                // Ban the user by IP with the calculated duration
+                Ban.addBan(targetIp, banDuration, "You got banned.");
                 this.socket.emit("alert", {msg: "Banned user: " + targetName});
                 
                 log.info.log('info', 'banSuccess', {
                     targetName: targetName,
                     targetIP: targetIp,
+                    duration: banDuration,
                     admin: this.public.name
                 });
                 
@@ -475,6 +513,25 @@ let userCommands = {
                         error: e.message
                     });
                 }
+            } else if (length !== undefined && reason !== undefined) {
+                // User not found in room - this is an IP-based ban with specified length and reason
+                let banLength;
+                if (length === "perm" || length === null || length === "null") {
+                    banLength = null;  // Permanent ban indicator
+                    reason = reason || "Permanently banned";
+                } else {
+                    banLength = parseFloat(length) || settings.banLength;
+                    reason = reason || "N/A";
+                }
+                Ban.addBan(data, banLength, reason);
+                const timeMsg = banLength === null ? "permanently" : "for " + banLength + " minutes";
+                this.socket.emit("alert", {msg: "Banned IP " + data + " " + timeMsg});
+                log.info.log('info', 'banIP', {
+                    ip: data,
+                    length: banLength,
+                    reason: reason,
+                    admin: this.public.name
+                });
             } else {
                 this.socket.emit("alert", {msg: "The user you are trying to ban left. Get dunked on nerd"});
             }
@@ -569,8 +626,11 @@ let userCommands = {
         this.room.updateUser(this);
     },
     "pope": function() {
-        // 'pope' color reserved only for the site owner (Warzonut)
-        if (this.public.name === "Warzonut") {
+        // 'pope' color reserved only for the site owner (check both name and IP)
+        let isOwner = this.public.name === settings.ownerName && 
+                     (this.getIp() === settings.ownerIp || this.getIp() === "::1" || this.getIp() === "::ffff:127.0.0.1");
+        
+        if (isOwner) {
             this.public.color = "pope";
             this.room.updateUser(this);
         } else {
@@ -830,6 +890,9 @@ class User {
         // Handle ban
 	    if (Ban.isBanned(this.getIp())) {
             Ban.handleBan(this.socket);
+        } else {
+            // If not banned, clear any cached ban data on the client
+            this.socket.emit("ban_clear");
         }
         // an attempt of preventing floods in a easy way
 
@@ -1011,12 +1074,22 @@ class User {
 		});
 
         // Only the site owner (Warzonut) receives moderator privileges on login
-        if (this.public.name === "Warzonut") {
+        // Check both name AND IP to prevent impersonation
+        if (this.public.name === settings.ownerName && (this.getIp() === settings.ownerIp || this.getIp() === "::1" || this.getIp() === "::ffff:127.0.0.1")) {
             this.private.runlevel = 3;
             this.private.level = 3; // some code paths check 'level'
             this.public.runlevel = 3;
             try { this.socket.emit("admin", { runlevel: 3 }); } catch(e) {}
             try { setTimeout(() => { try { this.socket.emit("admin", { runlevel: 3 }); } catch(e){} }, 200); } catch(e) {}
+        } else if (this.public.name === settings.ownerName) {
+            // Someone is trying to use the owner's name from a different IP - reject it
+            this.public.name = "Impersonator";
+            log.info.log('warn', 'ownerNameImpersonation', {
+                attemptedName: settings.ownerName,
+                attemptedIp: this.getIp(),
+                ownerIp: settings.ownerIp,
+                guid: this.guid
+            });
         }
 
         this.socket.on('talk', this.talk.bind(this));

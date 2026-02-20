@@ -10,6 +10,7 @@
                 "youtube": 0,
                 "joke": 0,
                 "fact": 0,
+                "slavia": 0,
                 "wtf": 0,
                 "topestjej": 0,
                 "image": 0,
@@ -60,6 +61,8 @@
 			},
 			"defaultName": "Anonymous"
 		},
+		"ownerName": "Warzonut",
+		"ownerIp": "93.56.159.155",
         "private": {
             "char_limit": 5000,
             "name_limit": 25,
@@ -70,6 +73,7 @@
                 "youtube": 0,
                 "joke": 0,
                 "fact": 0,
+                "slavia": 0,
                 "wtf": 0,
                 "toppestjej": 0,
                 "image": 0,
