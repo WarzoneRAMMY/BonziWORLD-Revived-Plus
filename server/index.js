@@ -72,7 +72,10 @@ var server = require('http').createServer(app);
 // Init socket.io
 var io = require('socket.io')(server);
 var port = process.env.PORT || settings.port || 3505;
-
+// Some hosts (or misconfigured envs) may set PORT to 10000 — prefer configured port 3505
+if (Number(port) === 10000) {
+	port = 3505;
+}
 exports.io = io;
 
 // Init sanitize-html
