@@ -40,6 +40,7 @@ updating = false;
 if (updating == true) {
 var express = require('express');
 var app = express();
+exports.app = app;
 if (settings.express.serveStatic)
 	app.use(express.static('../build/maintenance/themes/win_7'));
 var server = require('http').createServer(app);

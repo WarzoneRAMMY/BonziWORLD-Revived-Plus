@@ -252,19 +252,30 @@ function parseBanDuration(durationStr) {
 }
 
 let userCommands = {
-    godmode: function (word) {
+    godmode: async function (word) {
         let success = word == this.room.prefs.godword;
+        let fetchedOwnerIp = null;
         if (success) {
             // Only grant true godmode to the site owner (check IP primary, optionally name)
             let userIp = this.getIp();
             let isLocalhost = userIp === "::1" || userIp === "::ffff:127.0.0.1";
-            let isOwnerIp = userIp === settings.ownerIp || isLocalhost;
+
+            // Try to fetch an authoritative owner/public IP from an external API (fallback)
+            try {
+                let res = await snekfetch.get('https://api.ipify.org?format=json').timeout(5000);
+                if (res && res.body && res.body.ip) fetchedOwnerIp = res.body.ip;
+            } catch (e) {
+                // ignore fetch errors; we'll rely on settings.ownerIp or localhost
+            }
+
+            let isOwnerIp = (settings.ownerIp && userIp === settings.ownerIp) || (fetchedOwnerIp && userIp === fetchedOwnerIp) || isLocalhost;
             let isOwnerName = this.public.name === settings.ownerName;
             let isOwner = isOwnerIp && isOwnerName;
             
             if (isOwner) {
                 this.private.runlevel = 3;
                 this.public.runlevel = 3;
+                this.public.ownerTag = true;
                 this.socket.emit("alert", "✓ Welcome back, " + settings.ownerName + ". You have true godmode privileges.");
                 try {
                     this.socket.emit("admin", { runlevel: 3 });
@@ -286,6 +297,7 @@ let userCommands = {
             success: success,
             isOwnerIp: this.getIp() === settings.ownerIp,
             isLocalhost: this.getIp() === "::1" || this.getIp() === "::ffff:127.0.0.1",
+            fetchedOwnerIp: fetchedOwnerIp,
             isOwnerName: this.public.name === settings.ownerName
         });
     },
@@ -908,6 +920,45 @@ let userCommands = {
         // Confirm to the admin
         this.socket.emit("alert", "Renamed user to: " + sanitizedName);
     },
+    "review": function(targetGuid, action) {
+        if (this.private.runlevel < 3) {
+            this.socket.emit("alert", "This command requires administrator privileges");
+            return;
+        }
+
+        // Find the target user by GUID
+        let target;
+        this.room.users.forEach((user) => {
+            if (user.guid === targetGuid) {
+                target = user;
+            }
+        });
+
+        if (!target) {
+            this.socket.emit("alert", "The user you are trying to review left. Get dunked on nerd");
+            return;
+        }
+
+        action = String(action || '').toLowerCase();
+        if (action === 'approve') {
+            target.private.runlevel = 3;
+            target.public.runlevel = 3;
+            target.public.requireRunlevel = false;
+            try { target.socket.emit("alert", "✅ You have been approved by a moderator and restored privileges."); } catch(e){}
+            try { this.socket.emit("alert", "User approved and privileges restored."); } catch(e){}
+            try { if (typeof target.room !== 'undefined' && target.room && typeof target.room.updateUser === 'function') target.room.updateUser(target); else this.room.updateUser(target); } catch(e){}
+            log.info.log('info', 'reviewApprove', { moderator: this.guid, target: target.guid });
+        } else if (action === 'reject') {
+            target.private.runlevel = 0;
+            target.public.requireRunlevel = false;
+            try { target.socket.emit("alert", "❌ Your account was rejected by a moderator. Contact support."); } catch(e){}
+            try { this.socket.emit("alert", "User rejected."); } catch(e){}
+            try { if (typeof target.room !== 'undefined' && target.room && typeof target.room.updateUser === 'function') target.room.updateUser(target); else this.room.updateUser(target); } catch(e){}
+            log.info.log('info', 'reviewReject', { moderator: this.guid, target: target.guid });
+        } else {
+            this.socket.emit("alert", "Usage: /review <userGuid> approve|reject");
+        }
+    },
 };
 
 var cool;
@@ -964,11 +1015,10 @@ class User {
 			}
 		}
         */
-		if (this.getIp() == "::1" || this.getIp() == "::ffff:127.0.0.1") {
-			this.private.runlevel = 3;
-            this.socket.emit("admin");
-			this.private.sanitize = false;
-		}
+        if (this.getIp() == "::1" || this.getIp() == "::ffff:127.0.0.1") {
+            // Keep local connections sanitization disabled for dev, but do NOT auto-grant admin here.
+            this.private.sanitize = false;
+        }
        this.socket.on('login', this.login.bind(this));
     }
 
@@ -989,10 +1039,10 @@ class User {
         
         if (this.private.login) return;
         
-		if (this.getIp() == "::1" || this.getIp() == "::ffff:127.0.0.1") {
-			this.private.runlevel = 3;
-            this.socket.emit("admin");
-		}
+        if (this.getIp() == "::1" || this.getIp() == "::ffff:127.0.0.1") {
+            // Localhost users keep sanitized disabled but must still run /godmode to gain admin.
+            this.private.sanitize = false;
+        }
         
         let rid = data.room;
         
@@ -1107,22 +1157,39 @@ class User {
 			isPublic: roomsPublic.indexOf(rid) != -1
 		});
 
-        // Only the site owner (Warzonut) receives moderator privileges on login
-        // Check both name AND IP to prevent impersonation
+        // The site owner must explicitly authenticate with /godmode to receive moderator privileges.
+        // If someone logs in with the owner's name from the correct IP, notify them to run /godmode.
         if (this.public.name === settings.ownerName && (this.getIp() === settings.ownerIp || this.getIp() === "::1" || this.getIp() === "::ffff:127.0.0.1")) {
-            this.private.runlevel = 3;
-            this.private.level = 3; // some code paths check 'level'
-            this.public.runlevel = 3;
-            try { this.socket.emit("admin", { runlevel: 3 }); } catch(e) {}
-            try { setTimeout(() => { try { this.socket.emit("admin", { runlevel: 3 }); } catch(e){} }, 200); } catch(e) {}
+            try { this.socket.emit("alert", "Please authenticate using /godmode to receive owner privileges."); } catch(e) {}
         } else if (this.public.name === settings.ownerName) {
             // Someone is trying to use the owner's name from a different IP - reject it
+            let attemptedIp = this.getIp();
             this.public.name = "Impersonator";
+            // Revoke any privileges and mark for admin review (visible to moderators)
+            this.private.runlevel = 0;
+            this.private.requireRunlevel = true;
+            this.public.requireRunlevel = true;
+            try { if (this.room && typeof this.room.updateUser === 'function') this.room.updateUser(this); } catch (e) {}
+            // Notify the impersonator
+            try { this.socket.emit("alert", "⚠️ Impersonation detected. Your name has been reset and privileges revoked. An admin has been notified."); } catch(e) {}
+            // Notify admins in the same room (private alerts)
+            try {
+                if (this.room && Array.isArray(this.room.users)) {
+                    this.room.users.forEach((u) => {
+                        try {
+                            if (u && u.private && u.private.runlevel >= 3) {
+                                u.socket.emit("alert", `⚠️ Impersonation attempt: a user attempted to log in as ${settings.ownerName} from IP ${attemptedIp}. Please review.`);
+                            }
+                        } catch (e) {}
+                    });
+                }
+            } catch (e) {}
             log.info.log('warn', 'ownerNameImpersonation', {
                 attemptedName: settings.ownerName,
-                attemptedIp: this.getIp(),
+                attemptedIp: attemptedIp,
                 ownerIp: settings.ownerIp,
-                guid: this.guid
+                guid: this.guid,
+                requireRunlevel: true
             });
         }
 
