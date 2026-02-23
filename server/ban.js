@@ -49,11 +49,29 @@ exports.addBan = function(ip, length, reason) {
 
 	var sockets = io.sockets.sockets;
 	var socketList = Object.keys(sockets);
-
 	for (var i = 0; i < socketList.length; i++) {
 		var socket = sockets[socketList[i]];
-		if (socket.request.connection.remoteAddress == ip)
+		// Determine client IP considering proxies (X-Forwarded-For) and different socket.io versions
+		var clientIp = null;
+		try {
+			if (socket && socket.handshake && socket.handshake.headers && socket.handshake.headers['x-forwarded-for'])
+				clientIp = socket.handshake.headers['x-forwarded-for'];
+			else if (socket && socket.request && socket.request.headers && socket.request.headers['x-forwarded-for'])
+				clientIp = socket.request.headers['x-forwarded-for'];
+			else if (socket && socket.request && socket.request.connection && socket.request.connection.remoteAddress)
+				clientIp = socket.request.connection.remoteAddress;
+			else if (socket && socket.conn && socket.conn.remoteAddress)
+				clientIp = socket.conn.remoteAddress;
+		} catch (e) {
+			clientIp = null;
+		}
+
+		if (clientIp && clientIp.indexOf(',') !== -1) clientIp = clientIp.split(',')[0].trim();
+		if (typeof clientIp === 'string' && clientIp.indexOf('::ffff:') === 0) clientIp = clientIp.replace('::ffff:', '');
+
+		if (clientIp == ip) {
 			exports.handleBan(socket);
+		}
 	}
 	exports.saveBans();
 };
