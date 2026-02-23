@@ -32,24 +32,31 @@ try {
 const settings = require("./settings.json");
 
 // Setup basic express server
+const path = require('path');
 
 // Maintenance Configs
 // Options: true and false
 updating = false;
 
 if (updating == true) {
-var express = require('express');
-var app = express();
-exports.app = app;
-if (settings.express.serveStatic)
-	app.use(express.static('../build/maintenance/themes/win_7'));
-var server = require('http').createServer(app);
+	var express = require('express');
+	var app = express();
+	exports.app = app;
+	if (settings.express.serveStatic) {
+		const servePath = path.join(__dirname, '..', 'build', 'maintenance', 'themes', 'win_7');
+		console.log('Serving maintenance static from', servePath);
+		app.use(express.static(servePath));
+	}
+	var server = require('http').createServer(app);
 } else {
-var express = require('express');
-var app = express();
-if (settings.express.serveStatic)
-	app.use(express.static('../build/www'));
-var server = require('http').createServer(app);
+	var express = require('express');
+	var app = express();
+	if (settings.express.serveStatic) {
+		const servePath = path.join(__dirname, '..', 'build', 'www');
+		console.log('Serving web static from', servePath);
+		app.use(express.static(servePath));
+	}
+	var server = require('http').createServer(app);
 };
 // Shutdown Configs
 // Options: true and false
