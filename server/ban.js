@@ -65,7 +65,12 @@ exports.removeBan = function(ip) {
 
 exports.handleBan = function(socket) {
 	var ip = socket.request.connection.remoteAddress;
-	
+    
+	// Ensure we actually have a ban record for this IP
+	if (!bans[ip]) {
+		return false;
+	}
+
 	// Check if ban has expired (permanent bans have null end date)
 	if (bans[ip].end !== null && bans[ip].end <= new Date().getTime()) {
 		exports.removeBan(ip);
@@ -75,11 +80,18 @@ exports.handleBan = function(socket) {
 	log.access.log('info', 'ban', {
 		ip: ip
 	});
-	socket.emit('ban', {
-		reason: bans[ip].reason,
-		end: bans[ip].end
-	});
-	socket.disconnect();
+	try {
+		socket.emit('ban', {
+			reason: bans[ip].reason,
+			end: bans[ip].end
+		});
+		// Give the client a short moment to receive and process the ban event
+		setTimeout(function() {
+			try { socket.disconnect(); } catch(e) {}
+		}, 200);
+	} catch(e) {
+		try { socket.disconnect(); } catch(err) {}
+	}
 	return true;
 };
 
@@ -93,7 +105,8 @@ exports.kick = function(ip, reason) {
 			socket.emit('kick', {
 				reason: reason || "N/A"
 			});
-			socket.disconnect();
+			// Allow client to receive the kick message before closing
+			setTimeout(function(s) { try { s.disconnect(); } catch(e) {} }, 200, socket);
 		}
 	}
 };
