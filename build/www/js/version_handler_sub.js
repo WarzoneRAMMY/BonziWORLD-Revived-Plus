@@ -1,7 +1,7 @@
 // too simple
 /* var data = {
   "handler": {
-    "build": "BonziWORLD Revived+ - 1.7.2",
+    "build": "BonziWORLD Renewed+ - 1.7.2",
   }
 }
 
