@@ -100,6 +100,11 @@ server.listen(port, function () {
 });
 app.use(express.static(__dirname + '/public'));
 
+// Health check endpoint for hosting platforms
+app.get('/health', function (req, res) {
+	res.status(200).send('OK');
+});
+
 // ========================================================================
 // Banning functions
 // ========================================================================

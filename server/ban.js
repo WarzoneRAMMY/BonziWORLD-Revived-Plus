@@ -2,32 +2,31 @@ const log = require('./log.js').log;
 const fs = require('fs-extra');
 const settings = require("../settings.json");
 const io = require('./index.js').io;
+const path = require('path');
 
-
-let bans;
+const bansPath = path.join(__dirname, 'bans.json');
+let bans = {};
 
 exports.init = function() {
-    fs.writeFile("./bans.json", "{}", { flag: 'wx' }, function(err) {
-        if (!err) console.log("Created empty bans list.");
-        try {
-            bans = require("./bans.json");
-        } catch(e) {
-            throw "Could not load bans.json. Check syntax and permissions.";
-        }
-    });
+	try {
+		if (!fs.existsSync(bansPath)) {
+			fs.writeFileSync(bansPath, "{}");
+			console.log("Created empty bans list.");
+		}
+		let raw = fs.readFileSync(bansPath, 'utf8');
+		bans = JSON.parse(raw || '{}');
+	} catch (e) {
+		console.error("Could not load bans.json. Check syntax and permissions.", e);
+		bans = {};
+	}
 };
 
 exports.saveBans = function() {
-	fs.writeFile(
-		"./bans.json",
-		JSON.stringify(bans),
-		{ flag: 'w' },
-		function(error) {
-			log.info.log('info', 'banSave', {
-				error: error
-			});
-		}
-	);
+	fs.writeFile(bansPath, JSON.stringify(bans), { flag: 'w' }, function(error) {
+		try {
+			log.info.log('info', 'banSave', { error: error });
+		} catch(e) {}
+	});
 };
 
 // Ban length is in minutes, or null for permanent
