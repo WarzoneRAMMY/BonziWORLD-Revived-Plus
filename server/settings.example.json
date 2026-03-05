@@ -172,5 +172,10 @@
     "port": 3505,
     "express": {
         "serveStatic": true
+    },
+    "sessionSecret": "changeme",
+    "auth": {
+        "user": "admin",
+        "pass": "admin"
     }
 }

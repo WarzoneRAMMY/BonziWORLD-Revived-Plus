@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>BonziWIKI - Login</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="/dist/css/bootstrap.css">
+    <link rel="stylesheet" href="/dist/css/readme.css">
+    <script src="/js/lib/jquery.min.js"></script>
+</head>
+<body>
+<nav class="navbar navbar-inverse">
+  <div class="container-fluid">
+    <div class="navbar-header">
+      <a id="navbar-brand" href="/wiki"><img src="/img/bonzi.png" alt="BonziWORLD"></a>
+    </div>
+    <ul class="nav navbar-nav">
+      <li><a href="/wiki">Home</a></li>
+      <li><a href="/wiki/show">Articles</a></li>
+    </ul>
+  </div>
+</nav>
+<div class="container mt-4" id="content">
+  <h1>Login</h1>
+  <form id="login-form">
+    <label>Username:</label><br>
+    <input type="text" name="user"><br>
+    <label>Password:</label><br>
+    <input type="password" name="pass"><br><br>
+    <button type="submit" class="btn btn-primary">Login</button>
+  </form>
+</div>
+<script>
+$('#login-form').submit(function(e){
+    e.preventDefault();
+    const payload = { user: $('input[name=user]').val(), pass: $('input[name=pass]').val() };
+    $.ajax({url:'/login',method:'POST',data:payload})
+      .done(function(){ window.location.href='/wiki/show'; })
+      .fail(function(){ alert('Login failed'); });
+});
+</script>
+</body>
+</html>

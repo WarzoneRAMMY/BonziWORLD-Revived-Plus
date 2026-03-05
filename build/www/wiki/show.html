@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>BonziWIKI - Articles</title>
+        <meta content="" />
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <link rel="stylesheet" type="text/css" href="/dist/css/bootstrap.css" />
+        <link rel="apple-touch-icon" sizes="180x180" href="/favicons/apple-touch-icon.png" />
+        <link rel="icon" type="image/png" href="/favicons/favicon-32x32.png" sizes="32x32" />
+        <link rel="icon" type="image/png" href="/favicons/favicon-16x16.png" sizes="16x16" />
+        <link rel="manifest" href="/favicons/manifest.json" />
+        <link rel="mask-icon" href="/favicons/safari-pinned-tab.svg" color="#5bbad5" />
+        <link rel="shortcut icon" href="/favicons/favicon.ico" />
+        <meta name="msapplication-config" content="/favicons/browserconfig.xml" />
+        <meta name="theme-color" content="#6D33A0" />
+        <link rel="stylesheet" type="text/css" href="/dist/css/readme.css" />
+        <script src="/js/lib/jquery.min.js"></script>
+        <script src="/js/version_handler_sub.js"></script>
+        <script src="/dist/js/angular.min.js"></script>
+            <meta name="keywords" content="BonziWORLD, BonziWORLD Classic, BonziWORLD Renewed+, BonziWORLD Renewed+, bonziworld, bonziworld classic, bonziworld renewed, BonziWORLD Renewed, bonzibuddy, BonziBUDDY, BonziWORLD FE, bonziworld fe">
+        <meta name="og:keywords" content="BonziWORLD, BonziWORLD Renewed+, BonziWORLD Renewed+, BonziWORLD Classic, bonziworld, bonziworld classic, bonziworld renewed, BonziWORLD Renewed, bonzibuddy, BonziBUDDY, BonziWORLD FE, bonziworld fe">
+        
+    <style>
+            @charset 'UTF-8';
+            [ng\:cloak],
+            [ng-cloak],
+            [data-ng-cloak],
+            [x-ng-cloak],
+            .ng-cloak,
+            .x-ng-cloak,
+            .ng-hide:not(.ng-hide-animate) {
+                display: none !important;
+            }
+            ng\:form {
+                display: block;
+            }
+            .ng-animate-shim {
+                visibility: hidden;
+            }
+            .ng-anchor {
+                position: absolute;
+            }
+        </style>
+    </head>
+    <body class="no_selection">
+        <script>
+            window.environment = "production";
+        </script>
+<nav class="navbar navbar-inverse">
+  <div class="container-fluid">
+    <div class="navbar-header">
+      <button type="button" class="navbar-toggle" data-toggle="collapse" data-target="#myNavbar">
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+      </button>
+      <a id="navbar-brand" href="/wiki"><img src="/img/bonzi.png" alt="BonziWORLD"></a>
+    </div>
+    <div class="collapse navbar-collapse" id="myNavbar">
+      <ul class="nav navbar-nav">
+        <li class="active"><a href="/wiki">Home</a></li>
+        <li class="active"><a href="/wiki/new">New Article</a></li>
+        <li class="active"><a href="/wiki/show">Articles</a></li>
+      </ul>
+      <ul class="nav navbar-nav navbar-right">
+        <li><a href="/wiki/login.html"><span class="glyphicon glyphicon-log-in"></span> Login</a></li>
+      </ul>
+    </div>
+  </div>
+</nav>
+<!-- Search bar -->
+<div class="container">
+  <div class="row">
+      <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+      <div class="input-group buscador-principal">
+        <input name="search_param" value="all" id="search_param" type="hidden">
+        <input class="form-control" name="x" placeholder="Search" type="text">
+        <div class="input-group-btn search-panel">
+          <button type="button" id="search" class="btn btn-default dropdown-toggle" data-toggle="dropdown">
+            <span id="search_concept">Category</span> <span class="caret"></span>
+          </button>
+          <ul class="dropdown-menu" role="menu">
+          <li><a href="/wiki/search/Sports">Sports</a></li>
+          <li><a href="/wiki/search/Games">Games</a></li>
+          <li><a href="/wiki/search/Coding">Coding</a></li>
+          <li><a href="/wiki/search/Restaurants">Restaurants</a></li>
+          <li class="divider"></li>
+          <li><a href="#">Go on pick one</a></li>
+          </ul>
+        </div>
+        <span class="input-group-btn">
+          <button id="searching" class="btn btn-primary" type="button"><span class="glyphicon glyphicon-search"></span></button>
+        </span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- quick filters -->
+<div class="container text-center" style="margin-top:10px;">
+  <a href="/wiki/show?trending=1" class="btn btn-sm btn-info">Trending</a>
+  <a href="#" id="author-filter" class="btn btn-sm btn-warning">By author</a>
+</div>
+
+<div class="container mt-4" id="content">
+  <main>
+    <section>
+      <div class="content_container" id="articles">
+        <p>Loading articles...</p>
+      </div>
+      <!-- Add more articles here -->
+    </section>
+  </main>
+</div>
+<footer id="container-fluid-text-center">
+  <p id="footer">Made With &#9749</p><br>
+  <p id="footer">By: BonziWORLD</p>
+</footer>
+<script>
+// search handler: reload page with query
+$('#searching').click(function(){
+    const q = $('input[name="x"]').val();
+    if (q) {
+        window.location.search = 'search=' + encodeURIComponent(q);
+    }
+});
+
+// load articles list dynamically
+function renderArticles(list){
+    const container = $('#articles');
+    container.empty();
+    if (!list.length) { container.append('<p>No articles yet.</p>'); return; }
+    list.forEach(a => {
+        let historyBtn = '';
+            if (a.versions && a.versions.length) {
+                historyBtn = `<button class="btn btn-xs btn-default history-btn" data-id="${a.id}">History (${a.versions.length})</button>`;
+            }
+            container.append(`
+            <hr>
+            <h2>Title: ${a.title}</h2>
+            <h4>Category: ${a.category}</h4>
+            <p><em>by ${a.author||'anonymous'}</em></p>
+            <p>${a.content}</p>
+            <p class="date">${a.date.split('T')[0]}</p>
+            ${historyBtn}
+            <a href="/wiki/${a.id}/edit" class="btn btn-primary btn-warning">Edit</a>
+            <hr>
+        `);
+    });
+}
+
+// determine query parameters
+function getQuery() {
+    const qs = new URLSearchParams(window.location.search);
+    const obj = {};
+    for (const [k,v] of qs.entries()) obj[k] = v;
+    return obj;
+}
+
+const params = getQuery();
+let url = '/api/wiki';
+if (Object.keys(params).length) {
+    url += '?' + new URLSearchParams(params).toString();
+}
+
+$.get(url).done(renderArticles);
+
+// author filter click handler
+$('#author-filter').click(function(e){
+    e.preventDefault();
+    const name = prompt('Enter author name:');
+    if (name) {
+        window.location.search = 'author=' + encodeURIComponent(name);
+    }
+});
+
+// history button handler
+$(document).on('click', '.history-btn', function(){
+    const id = $(this).data('id');
+    $.get('/api/wiki').done(function(list){
+        const art = list.find(a=>a.id==id);
+        if (!art) return;
+        let msg = 'Previous versions:\n';
+        art.versions.forEach(v=>{ msg += v.date.split('T')[0] + ' by ' + (v.author||'unknown') + '\n'; });
+        alert(msg);
+    });
+});
+
+</script>
+<script src="/socket.io/socket.io.js"></script>
+<script src="/js/wiki.js"></script>
+</body>
+</html>

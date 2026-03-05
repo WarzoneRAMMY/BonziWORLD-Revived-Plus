@@ -51,6 +51,8 @@ if (updating == true) {
 } else {
 	var express = require('express');
 	var app = express();
+	// enable JSON body parsing for API endpoints (wiki, etc)
+	app.use(express.json());
 	if (settings.express.serveStatic) {
 		const servePath = path.join(__dirname, '..', 'build', 'www');
 		console.log('Serving web static from', servePath);
@@ -106,6 +108,78 @@ server.listen(port, function () {
 	);
 });
 app.use(express.static(__dirname + '/public'));
+
+// --------- wiki backend API ------------------------------------------------
+const Wiki = require('./wiki');
+Wiki.load();
+
+// require session middleware for auth
+const session = require('express-session');
+app.use(session({
+    secret: settings.sessionSecret || 'secret',
+    resave: false,
+    saveUninitialized: true
+}));
+
+function ensureAuth(req, res, next) {
+    if (req.session && req.session.user) return next();
+    res.status(401).json({ error: 'authentication required' });
+}
+
+// login/logout simple handlers (username/password from settings)
+app.post('/login', (req, res) => {
+    const { user, pass } = req.body;
+    if (user === settings.auth.user && pass === settings.auth.pass) {
+        req.session.user = user;
+        res.json({ ok: true });
+    } else {
+        res.status(403).json({ error: 'invalid credentials' });
+    }
+});
+app.post('/logout', (req, res) => {
+    req.session.destroy(() => res.json({ ok: true }));
+});
+
+// GET /api/wiki with optional filters
+app.get('/api/wiki', (req, res) => {
+    const { search, author, trending } = req.query;
+    let list = Wiki.list();
+    if (search) list = Wiki.search(search);
+    if (author) list = Wiki.byAuthor(author);
+    if (trending) list = Wiki.trending();
+    res.json(list);
+});
+
+// create a new article
+app.post('/api/wiki', ensureAuth, async (req, res) => {
+    const { title, category, content } = req.body;
+    if (!(await Wiki.moderate(title)) || !(await Wiki.moderate(content))) {
+        return res.status(400).json({ error: 'Content failed moderation' });
+    }
+    const article = Wiki.create({ title, category, content, author: req.session.user });
+    io.emit('wiki:update', article);
+    res.json(article);
+});
+
+// update existing article
+app.put('/api/wiki/:id', ensureAuth, async (req, res) => {
+    const id = parseInt(req.params.id);
+    if (!(await Wiki.moderate(req.body.title)) || !(await Wiki.moderate(req.body.content))) {
+        return res.status(400).json({ error: 'Content failed moderation' });
+    }
+    const art = Wiki.update(id, { ...req.body, author: req.session.user });
+    if (!art) return res.status(404).end();
+    io.emit('wiki:update', art);
+    res.json(art);
+});
+
+// delete article
+app.delete('/api/wiki/:id', ensureAuth, (req, res) => {
+    const id = parseInt(req.params.id);
+    Wiki.remove(id);
+    io.emit('wiki:update', { id });
+    res.status(204).end();
+});
 
 // Health check endpoint for hosting platforms
 app.get('/health', function (req, res) {
